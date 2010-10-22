@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: UTF8 -*-
 
 """
 gheimdall a GTK frontend for heimdall
@@ -37,10 +38,23 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 
-class HelloWorld:
+class Gheimdall:
 
+	currentPath = ""
 	params = []
-	notrecognized = []
+	# Not recognized
+	foundpda = []
+	nrpda = []
+	foundphone = []
+	nrphone = []
+	foundcsc = []
+	nrcsc = []
+	# Files accepted in pda, phone and csc
+	pdafiles = ["zImage", "dbdata.rfs", "param.lfs", "factoryfs.rfs", "boot.bin", "cache.rfs"]
+	phonefiles = ["modem.bin"]
+	cscfiles = ["dbdata.rfs", "cache.rfs"]
+	
+	parameters = {"zImage":"--kernel", "dbdata.rfs":"--dbdata", "param.lfs":"--param", "factoryfs.rfs":"--factoryfs", "boot.bin":"--boot", "cache.rfs":"--cache", "modem.bin":"--modem"}
 
 	def generateCode(self, widget, data=None):
 		# Check Pda
@@ -49,22 +63,11 @@ class HelloWorld:
 				pdatar = tarfile.open(self.etrPda.get_text())
 				members = pdatar.getnames()
 				for name in members:
-					if name == "zImage":
-						self.params.append("--kernel zImage")
-					elif name == "dbdata.rfs":
-						self.params.append("--dbdata dbdata.rfs")
-					elif name == "factoryfs.rfs":
-						self.params.append("--factoryfs factoryfs.rfs")
-					elif name == "param.lfs":
-						self.params.append("--param param.lfs")
-					elif name == "boot.bin":
-						self.params.append("--boot boot.bin")
-					elif name == "cache.rfs":
-						self.params.append("--cache cache.rfs")
-					else:
-						self.notrecognized.append(name)
-				print self.params
-				print self.notrecognized
+					if name in self.pdafiles and name not in self.params:
+						self.params.append(name)
+						self.foundpda.append(name)
+					elif name not in self.pdafiles:
+						self.nrpda.append(name)
 			else:
 				print "TODO handle pda not tar file"
 		except(ValueError):
@@ -76,11 +79,11 @@ class HelloWorld:
 				phonetar = tarfile.open(self.etrPhone.get_text())
 				members = phonetar.getnames()
 				for name in members:
-					if name == "modem.bin":
-						self.params.append("--modem modem.bin")
-					else:
-						self.notrecognized.append(name)
-				print self.notrecognized
+					if name in self.phonefiles and name not in self.params:
+						self.params.append(name)
+						self.foundphone.append(name)
+					elif name not in self.phonefiles:
+						self.nrphone.append(name)
 			else:
 				print "TODO handle phone not tar file"
 		except(ValueError):
@@ -92,21 +95,77 @@ class HelloWorld:
 				csctar = tarfile.open(self.etrCsc.get_text())
 				members = csctar.getnames()
 				for name in members:
-					if name == "dbdata.rfs":
-						self.params.append("--dbdata dbdata.rfs")
-					elif name == "cache.rfs":
-						self.params.append("--cache cache.rfs")
-					else:
-						self.notrecognized.append(name)
+					if name in self.cscfiles and name not in self.params:
+						self.params.append(name)
+						self.foundcsc.append(name)
+					elif name not in self.cscfiles:
+						self.nrcsc.append(name)
 			else:
 				print "TODO handle csc not tar file"
 		except(ValueError):
 			print "TODO handle csc no file"
 
 		print self.params
-		print self.notrecognized
+		print self.nrpda
+		print self.nrphone
+		print self.nrcsc
 
+		
 
+		txtbuffer = gtk.TextBuffer()
+		self.txtResult.set_buffer(txtbuffer)
+		
+		tmp = "EXTRACTING FROM PDA\n"
+		for name in self.foundpda:
+			tmp += "Extracting " + name + ".."
+			txtbuffer.set_text(tmp)
+			while gtk.events_pending():
+				gtk.main_iteration_do(False)
+
+			# Do the ectual extraction
+			pdatar.extract(name, ".")
+			
+			tmp += " DONE\n"
+			txtbuffer.set_text(tmp)
+			while gtk.events_pending():
+				gtk.main_iteration_do(False)
+		
+		tmp += "\nEXTRACTING FROM PHONE\n"
+		for name in self.foundphone:
+			tmp += "Extracting " + name + ".."
+			txtbuffer.set_text(tmp)
+			while gtk.events_pending():
+				gtk.main_iteration_do(False)
+
+			# Do the ectual extraction
+			phonetar.extract(name, ".")
+			
+			tmp += " DONE\n"
+			txtbuffer.set_text(tmp)
+			while gtk.events_pending():
+				gtk.main_iteration_do(False)
+		
+		tmp += "\nEXTRATING FROM CSC\n"
+		for name in self.foundcsc:
+			tmp += "Extracting " + name + ".."
+			txtbuffer.set_text(tmp)
+			while gtk.events_pending():
+				gtk.main_iteration_do(False)
+
+			# Do the ectual extraction
+			csctar.extract(name, ".")
+			
+			tmp += " DONE\n"
+			txtbuffer.set_text(tmp)
+			while gtk.events_pending():
+				gtk.main_iteration_do(False)
+
+		tmp += "\nEXTRACTIONS FINISHED\nNow run the following command:\n"
+		tmp += "\nheimdall flash --pit " + self.etrPit.get_text()
+		for element in self.params:
+			tmp += " " + self.parameters[element] + " " + element
+		txtbuffer.set_text(tmp)
+		
 	# Filechooser dialog
 	# data = [title, where-to-write-result]
 	def showDialog(self, widget, data=None):
@@ -117,11 +176,23 @@ class HelloWorld:
 				       (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
 					gtk.STOCK_OPEN, gtk.RESPONSE_OK))
 			dialog.set_default_response(gtk.RESPONSE_OK)
+			if len(self.currentPath) > 0:
+				dialog.set_current_folder_uri(self.currentPath)
+			if len(data[1].get_text()) > 0:
+				dialog.select_filename(data[1].get_text())
 
-			filter = gtk.FileFilter()
-			filter.set_name("Tar archives")
-			filter.add_mime_type("application/x-tar")
-			dialog.add_filter(filter)
+			if data[2] == 1:
+				filter = gtk.FileFilter()
+				filter.set_name("Tar archives")
+				filter.add_mime_type("application/x-tar")
+				dialog.add_filter(filter)
+			elif data[2] == 2:
+				filter = gtk.FileFilter()
+				filter.set_name("PIT files")
+				filter.add_pattern("*.pit")
+				filter.add_pattern("*.PIT")
+				filter.add_pattern("*.Pit")
+				dialog.add_filter(filter)
 			
 			filter = gtk.FileFilter()
 			filter.set_name("All files")
@@ -132,6 +203,7 @@ class HelloWorld:
 			response = dialog.run()
 			if response == gtk.RESPONSE_OK:
 				data[1].set_text(dialog.get_filename())
+				self.currentPath = dialog.get_current_folder_uri()
 			elif response == gtk.RESPONSE_CANCEL:
 				print 'Closed, no files selected'
 			dialog.destroy()
@@ -152,14 +224,39 @@ class HelloWorld:
 	def __init__(self):
 		# create a new window
 		self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+		self.window.set_title("gheimdall")
 
 		self.window.connect("delete_event", self.delete_event)
 		self.window.connect("destroy", self.destroy)
 
 		# Sets the border width of the window.
-		self.window.set_border_width(10)
+		self.window.set_border_width(5)
 
-		self.vbox = gtk.VBox(False,0)
+		self.vbox = gtk.VBox(False,4)
+
+		# Pit file
+		self.lblPit = gtk.Label("Choose PIT file")
+		self.lblPit.set_alignment(0, 0)
+		self.hboxPit = gtk.HBox(False,0)
+		self.etrPit = gtk.Entry()
+		self.etrPit.set_editable(False)
+		self.etrPit.set_sensitive(False)
+		self.btnPit = gtk.Button("Browse")
+		self.btnPitclear = gtk.Button("Clear")
+
+		self.btnPit.connect("clicked", self.showDialog, ["Choose PIT file..", self.etrPit, 2])
+		self.btnPitclear.connect("clicked", self.clear, self.etrPit)
+
+		self.vbox.add(self.lblPit)
+		self.vbox.add(self.hboxPit)
+		self.hboxPit.add(self.etrPit)
+		self.hboxPit.add(self.btnPit)
+		self.hboxPit.add(self.btnPitclear)
+		self.lblPit.show()
+		self.btnPit.show()
+		self.btnPitclear.show()
+		self.etrPit.show()
+		self.hboxPit.show()
 
 		# PDA box
 		self.lblPda = gtk.Label("Choose PDA (CODE) file")
@@ -171,7 +268,7 @@ class HelloWorld:
 		self.btnPda = gtk.Button("Browse")
 		self.btnPdaclear = gtk.Button("Clear")
 
-		self.btnPda.connect("clicked", self.showDialog, ["Choose PDA (CODE) file..", self.etrPda])
+		self.btnPda.connect("clicked", self.showDialog, ["Choose PDA (CODE) file..", self.etrPda, 1])
 		self.btnPdaclear.connect("clicked", self.clear, self.etrPda)
 
 		self.vbox.add(self.lblPda)
@@ -195,8 +292,8 @@ class HelloWorld:
 		self.btnPhone = gtk.Button("Browse")
 		self.btnPhoneclear = gtk.Button("Clear")
 
-		self.btnPhone.connect("clicked", self.showDialog, ["Choose PHONE (MODEM) file..", self.etrPhone])
-		self.btnPhone.connect("clicked", self.clear, self.etrPhone)
+		self.btnPhone.connect("clicked", self.showDialog, ["Choose PHONE (MODEM) file..", self.etrPhone, 1])
+		self.btnPhoneclear.connect("clicked", self.clear, self.etrPhone)
 
 		self.vbox.add(self.lblPhone)
 		self.vbox.add(self.hboxPhone)
@@ -219,7 +316,7 @@ class HelloWorld:
 		self.btnCsc = gtk.Button("Browse")
 		self.btnCscclear = gtk.Button("Clear")
 
-		self.btnCsc.connect("clicked", self.showDialog, ["Choose CSC file..", self.etrCsc])
+		self.btnCsc.connect("clicked", self.showDialog, ["Choose CSC file..", self.etrCsc, 1])
 		self.btnCscclear.connect("clicked", self.clear, self.etrCsc)
 
 		self.vbox.add(self.lblCsc)
@@ -232,6 +329,17 @@ class HelloWorld:
 		self.etrCsc.show()
 		self.btnCscclear.show()
 		self.hboxCsc.show()
+
+		self.sw = gtk.ScrolledWindow()
+		self.sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+
+		self.txtResult = gtk.TextView()
+		self.txtResult.set_size_request(500, 100)
+		self.txtResult.set_editable(False)
+		self.sw.add(self.txtResult)
+		self.vbox.add(self.sw)
+		self.sw.show()
+		self.txtResult.show()
 
 
 		self.btnGenerate = gtk.Button("Generate code")
@@ -253,5 +361,5 @@ class HelloWorld:
 # If the program is run directly or passed as an argument to the python
 # interpreter then create a HelloWorld instance and show it
 if __name__ == "__main__":
-	hello = HelloWorld()
-	hello.main()
+	gh = Gheimdall()
+	gh.main()
