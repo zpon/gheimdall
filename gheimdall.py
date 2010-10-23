@@ -42,6 +42,7 @@ class Gheimdall:
 
 	currentPath = ""
 	params = []
+	# found files
 	# Not recognized
 	foundpda = []
 	nrpda = []
@@ -50,11 +51,11 @@ class Gheimdall:
 	foundcsc = []
 	nrcsc = []
 	# Files accepted in pda, phone and csc
-	pdafiles = ["zImage", "dbdata.rfs", "param.lfs", "factoryfs.rfs", "boot.bin", "cache.rfs"]
+	pdafiles = ["zImage", "dbdata.rfs", "param.lfs", "factoryfs.rfs", "boot.bin", "cache.rfs", "Sbl.bin"]
 	phonefiles = ["modem.bin"]
 	cscfiles = ["dbdata.rfs", "cache.rfs"]
 	
-	parameters = {"zImage":"--kernel", "dbdata.rfs":"--dbdata", "param.lfs":"--param", "factoryfs.rfs":"--factoryfs", "boot.bin":"--boot", "cache.rfs":"--cache", "modem.bin":"--modem"}
+	parameters = {"zImage":"--kernel", "dbdata.rfs":"--dbdata", "param.lfs":"--param", "factoryfs.rfs":"--factoryfs", "boot.bin":"--boot", "cache.rfs":"--cache", "modem.bin":"--modem", "Sbl.bin":"--secondary"}
 
 	def generateCode(self, widget, data=None):
 		# Check Pda
@@ -95,8 +96,9 @@ class Gheimdall:
 				csctar = tarfile.open(self.etrCsc.get_text())
 				members = csctar.getnames()
 				for name in members:
-					if name in self.cscfiles and name not in self.params:
-						self.params.append(name)
+					if name in self.cscfiles:
+						if name not in self.params:
+							self.params.append(name)
 						self.foundcsc.append(name)
 					elif name not in self.cscfiles:
 						self.nrcsc.append(name)
